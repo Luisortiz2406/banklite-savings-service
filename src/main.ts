@@ -1,0 +1,16 @@
+import { ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(
+    new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
+  );
+  // Sin CORS: el navegador solo habla con el api-gateway, que es quien decide los orígenes.
+  const port = process.env.PORT ?? 3013;
+  await app.listen(port);
+  console.log(`Savings Service escuchando en http://localhost:${port}`);
+}
+
+bootstrap();
