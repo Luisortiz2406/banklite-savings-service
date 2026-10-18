@@ -13,7 +13,6 @@ import { createHash, randomInt } from 'crypto';
 import { DataSource, In, LessThan, Repository } from 'typeorm';
 import {
   CDT_MIN,
-  CDT_TAX,
   CDT_TERMS,
   cdtResult,
   DAY_MS,
@@ -25,6 +24,7 @@ import {
   MIN_MOVE,
   POCKET_ICONS,
   POCKET_RATE,
+  savingsCatalog,
 } from './catalog';
 import { Cdt } from './entities/cdt.entity';
 import { Pocket, PocketKind } from './entities/pocket.entity';
@@ -90,11 +90,7 @@ export class SavingsService {
         hasCdt: cdts.length > 0,
       },
       config: {
-        pocketRate: POCKET_RATE,
-        cdtMin: CDT_MIN,
-        cdtTax: CDT_TAX,
-        cdtTerms: CDT_TERMS,
-        minMove: MIN_MOVE,
+        ...savingsCatalog(),
         pocketIcons: POCKET_ICONS,
         goalIcons: GOAL_ICONS,
         demoMaturity: this.demoMaturityEnabled(),

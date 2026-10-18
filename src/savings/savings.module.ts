@@ -7,12 +7,13 @@ import { Cdt } from './entities/cdt.entity';
 import { Pocket } from './entities/pocket.entity';
 import { SavingsOp } from './entities/savings-op.entity';
 import { SavingsClientsService } from './savings-clients.service';
+import { SavingsCatalogController } from './savings-catalog.controller';
 import { SavingsController } from './savings.controller';
 import { SavingsService } from './savings.service';
 
 @Module({
   imports: [ConfigModule, JwtModule.register({}), TypeOrmModule.forFeature([Pocket, Cdt, SavingsOp])],
-  controllers: [SavingsController],
+  controllers: [SavingsCatalogController, SavingsController],
   providers: [SavingsService, SavingsClientsService, JwtAuthGuard],
 })
 export class SavingsModule {}

@@ -20,6 +20,23 @@ export const GOAL_MIN_TARGET = 10_000;
 export const POCKET_ICONS = ['general', 'viaje', 'casa', 'carro', 'estudio', 'regalo', 'emergencia'];
 export const GOAL_ICONS = ['viaje', 'casa', 'carro', 'estudio', 'tecnologia', 'emergencia', 'regalo', 'otro'];
 
+/**
+ * Tasas y topes de ahorro que muestran el frontend y Banki (GET /savings/catalog,
+ * público) y la vista de Bolsillos y CDT. Son la única fuente de estas cifras.
+ */
+export function savingsCatalog() {
+  return {
+    pocketRate: POCKET_RATE,
+    cdtMin: CDT_MIN,
+    cdtTax: CDT_TAX,
+    cdtTerms: CDT_TERMS,
+    minMove: MIN_MOVE,
+    maxPockets: MAX_POCKETS,
+    maxGoals: MAX_GOALS,
+    goalMinTarget: GOAL_MIN_TARGET,
+  };
+}
+
 export const DAY_MS = 86_400_000;
 
 /** Interés compuesto con tasa efectiva anual, redondeado a centavos. */
