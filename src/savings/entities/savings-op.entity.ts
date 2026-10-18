@@ -6,7 +6,8 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Update
  * descontó aquí y falta el asiento del ledger; completed: hecho; failed: el
  * ledger lo rechazó y se revirtió lo reservado.
  */
-export type SavingsOpType = 'pocket_in' | 'pocket_out' | 'pocket_interest' | 'cdt_open' | 'cdt_principal' | 'cdt_interest';
+export type SavingsOpType =
+  'pocket_in' | 'pocket_out' | 'pocket_interest' | 'cdt_open' | 'cdt_principal' | 'cdt_interest';
 
 @Entity('savings_ops')
 @Index('idx_savings_ops_user_status', ['idUser', 'status'])

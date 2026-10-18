@@ -7,7 +7,10 @@ import { ConfigService } from '@nestjs/config';
  * operación queda pendiente y se reintenta con la MISMA clave de idempotencia.
  */
 export class LedgerError extends Error {
-  constructor(message: string, readonly definitive: boolean) {
+  constructor(
+    message: string,
+    readonly definitive: boolean,
+  ) {
     super(message);
   }
 }
@@ -30,7 +33,12 @@ export class SavingsClientsService {
         signal: AbortSignal.timeout(8000),
       });
       if (!response.ok) return null;
-      const accounts = (await response.json()) as { id: string; accountNumber: string; accountType: string; status: string }[];
+      const accounts = (await response.json()) as {
+        id: string;
+        accountNumber: string;
+        accountType: string;
+        status: string;
+      }[];
       return accounts.find((a) => a.status === 'active' && a.accountType !== 'merchant') ?? null;
     } catch {
       return null;
@@ -70,7 +78,9 @@ export class SavingsClientsService {
     }
     const payload = await response.json().catch(() => ({}));
     if (response.ok) return payload as { id: string };
-    const message = Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message || 'El ledger rechazó la operación.';
+    const message = Array.isArray(payload?.message)
+      ? payload.message.join(', ')
+      : payload?.message || 'El ledger rechazó la operación.';
     throw new LedgerError(String(message).slice(0, 200), response.status >= 400 && response.status < 500);
   }
 }

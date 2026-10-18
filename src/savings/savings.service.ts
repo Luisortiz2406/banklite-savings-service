@@ -68,9 +68,9 @@ export class SavingsService {
     const view = active.map((p) => this.publicPocket(p));
     const sum = (list: { balance: number }[]) => money(list.reduce((t, x) => t + x.balance, 0));
     const interestEarned = money(
-      pockets.reduce((t, p) => t + Number(p.earned), 0)
-      + view.reduce((t, p) => t + p.accrued, 0)
-      + cdts.filter((c) => c.status === 'paid').reduce((t, c) => t + Number(c.net), 0),
+      pockets.reduce((t, p) => t + Number(p.earned), 0) +
+        view.reduce((t, p) => t + p.accrued, 0) +
+        cdts.filter((c) => c.status === 'paid').reduce((t, c) => t + Number(c.net), 0),
     );
     return {
       pockets: view.filter((p) => p.kind === 'pocket'),
@@ -84,7 +84,9 @@ export class SavingsService {
       },
       // Para los retos de Puntos Banklite (rewards-service).
       milestones: {
-        hasPocket: pockets.some((p) => p.kind === 'pocket' && Number(p.balance) > 0) || (await this.hasCompletedOp(idUser, 'pocket_in')),
+        hasPocket:
+          pockets.some((p) => p.kind === 'pocket' && Number(p.balance) > 0) ||
+          (await this.hasCompletedOp(idUser, 'pocket_in')),
         hasCdt: cdts.length > 0,
       },
       config: {
@@ -104,40 +106,51 @@ export class SavingsService {
   // BOLSILLOS Y METAS
   // =====================================================
 
-  async createPocket(idUser: string, token: string, dto: { kind: PocketKind; name: string; icon: string; target?: number; targetDate?: string }) {
+  async createPocket(
+    idUser: string,
+    token: string,
+    dto: { kind: PocketKind; name: string; icon: string; target?: number; targetDate?: string },
+  ) {
     const name = dto.name.trim();
     if (name.length < 2) throw new BadRequestException(`Ponle un nombre a tu ${label(dto.kind)}.`);
     const icons = dto.kind === 'goal' ? GOAL_ICONS : POCKET_ICONS;
     if (!icons.includes(dto.icon)) throw new BadRequestException('Ícono no válido.');
     if (dto.kind === 'goal') {
-      if (!dto.target || dto.target < GOAL_MIN_TARGET) throw new BadRequestException('La meta debe ser de al menos $10.000.');
+      if (!dto.target || dto.target < GOAL_MIN_TARGET)
+        throw new BadRequestException('La meta debe ser de al menos $10.000.');
       if (dto.targetDate && dto.targetDate <= new Date().toISOString().slice(0, 10)) {
         throw new BadRequestException('La fecha de la meta debe ser futura.');
       }
     }
     const active = await this.pockets.find({ where: { idUser, kind: dto.kind, status: 'active' } });
     if (active.length >= (dto.kind === 'goal' ? MAX_GOALS : MAX_POCKETS)) {
-      throw new BadRequestException(dto.kind === 'goal' ? `Puedes tener máximo ${MAX_GOALS} metas.` : `Puedes tener máximo ${MAX_POCKETS} bolsillos.`);
+      throw new BadRequestException(
+        dto.kind === 'goal'
+          ? `Puedes tener máximo ${MAX_GOALS} metas.`
+          : `Puedes tener máximo ${MAX_POCKETS} bolsillos.`,
+      );
     }
     if (active.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
       throw new ConflictException(`Ya tienes un ${label(dto.kind)} con ese nombre.`);
     }
     const account = await this.clients.receivingAccount(token);
     if (!account) throw new BadRequestException('Necesitas una cuenta Banklite activa.');
-    const pocket = await this.pockets.save(this.pockets.create({
-      idUser,
-      accountId: account.id,
-      kind: dto.kind,
-      name,
-      icon: dto.icon,
-      balance: '0',
-      earned: '0',
-      target: dto.kind === 'goal' ? money(dto.target).toFixed(2) : null,
-      targetDate: dto.kind === 'goal' ? dto.targetDate ?? null : null,
-      lastAccrualAt: new Date(),
-      status: 'active',
-      closedAt: null,
-    }));
+    const pocket = await this.pockets.save(
+      this.pockets.create({
+        idUser,
+        accountId: account.id,
+        kind: dto.kind,
+        name,
+        icon: dto.icon,
+        balance: '0',
+        earned: '0',
+        target: dto.kind === 'goal' ? money(dto.target).toFixed(2) : null,
+        targetDate: dto.kind === 'goal' ? (dto.targetDate ?? null) : null,
+        lastAccrualAt: new Date(),
+        status: 'active',
+        closedAt: null,
+      }),
+    );
     return this.publicPocket(pocket);
   }
 
@@ -165,7 +178,8 @@ export class SavingsService {
       const balance = Number(locked.balance);
       const take = close ? balance : money(amount ?? 0);
       if (!close) this.assertAmount(take);
-      if (take > balance) throw new BadRequestException(`En este ${label(locked.kind)} tienes ${balance.toLocaleString('es-CO')}.`);
+      if (take > balance)
+        throw new BadRequestException(`En este ${label(locked.kind)} tienes ${balance.toLocaleString('es-CO')}.`);
       if (take <= 0) {
         // Nada que devolver: se cierra de una vez.
         locked.status = 'closed';
@@ -176,12 +190,23 @@ export class SavingsService {
       // Se reserva: el saldo del bolsillo baja ya; si el ledger lo rechaza, se devuelve.
       locked.balance = money(balance - take).toFixed(2);
       await manager.save(locked);
-      return manager.save(manager.create(SavingsOp, {
-        idUser, type: 'pocket_out', pocketId, cdtId: null, amount: take.toFixed(2), closePocket: close,
-        idempotencyKey: key, status: 'pending', ledgerTransactionId: null, failureReason: null,
-      }));
+      return manager.save(
+        manager.create(SavingsOp, {
+          idUser,
+          type: 'pocket_out',
+          pocketId,
+          cdtId: null,
+          amount: take.toFixed(2),
+          closePocket: close,
+          idempotencyKey: key,
+          status: 'pending',
+          ledgerTransactionId: null,
+          failureReason: null,
+        }),
+      );
     });
-    if (!op) return { status: 'completed', pocket: this.publicPocket(await this.pockets.findOneByOrFail({ id: pocketId })) };
+    if (!op)
+      return { status: 'completed', pocket: this.publicPocket(await this.pockets.findOneByOrFail({ id: pocketId })) };
     return this.execute(op);
   }
 
@@ -203,16 +228,37 @@ export class SavingsService {
     const now = new Date();
 
     const op = await this.dataSource.transaction(async (manager) => {
-      const cdt = await manager.save(manager.create(Cdt, {
-        idUser, accountId: account.id, number: `CDT${randomInt(1_000_000, 9_999_999)}`,
-        amount: amount.toFixed(2), days: term.days, rate: term.rate.toFixed(4),
-        gross: result.gross.toFixed(2), tax: result.tax.toFixed(2), net: result.net.toFixed(2),
-        openedAt: now, maturesAt: new Date(now.getTime() + term.days * DAY_MS), status: 'opening', paidAt: null,
-      }));
-      return manager.save(manager.create(SavingsOp, {
-        idUser, type: 'cdt_open', pocketId: null, cdtId: cdt.id, amount: amount.toFixed(2), closePocket: false,
-        idempotencyKey: key, status: 'pending', ledgerTransactionId: null, failureReason: null,
-      }));
+      const cdt = await manager.save(
+        manager.create(Cdt, {
+          idUser,
+          accountId: account.id,
+          number: `CDT${randomInt(1_000_000, 9_999_999)}`,
+          amount: amount.toFixed(2),
+          days: term.days,
+          rate: term.rate.toFixed(4),
+          gross: result.gross.toFixed(2),
+          tax: result.tax.toFixed(2),
+          net: result.net.toFixed(2),
+          openedAt: now,
+          maturesAt: new Date(now.getTime() + term.days * DAY_MS),
+          status: 'opening',
+          paidAt: null,
+        }),
+      );
+      return manager.save(
+        manager.create(SavingsOp, {
+          idUser,
+          type: 'cdt_open',
+          pocketId: null,
+          cdtId: cdt.id,
+          amount: amount.toFixed(2),
+          closePocket: false,
+          idempotencyKey: key,
+          status: 'pending',
+          ledgerTransactionId: null,
+          failureReason: null,
+        }),
+      );
     });
     return this.execute(op);
   }
@@ -224,19 +270,34 @@ export class SavingsService {
     const cdt = await this.cdts.findOne({ where: { id: cdtId, idUser } });
     if (!cdt) throw new NotFoundException('CDT no encontrado.');
     if (cdt.status === 'paid') return { status: 'completed', cdt: this.publicCdt(cdt) };
-    if (cdt.status !== 'active' && cdt.status !== 'collecting') throw new ConflictException('Ese CDT no se puede cobrar.');
+    if (cdt.status !== 'active' && cdt.status !== 'collecting')
+      throw new ConflictException('Ese CDT no se puede cobrar.');
     if (Date.now() < cdt.maturesAt.getTime()) throw new BadRequestException('Tu CDT todavía no ha vencido.');
 
     const [principal, interest] = await this.dataSource.transaction(async (manager) => {
       await manager.update(Cdt, { id: cdt.id, status: 'active' }, { status: 'collecting' });
-      const make = (type: SavingsOpType, amount: string, opKey: string) => manager.save(manager.create(SavingsOp, {
-        idUser, type, pocketId: null, cdtId: cdt.id, amount, closePocket: false,
-        idempotencyKey: opKey, status: 'pending', ledgerTransactionId: null, failureReason: null,
-      }));
-      const existing = await manager.find(SavingsOp, { where: { cdtId: cdt.id, type: In(['cdt_principal', 'cdt_interest']) } });
+      const make = (type: SavingsOpType, amount: string, opKey: string) =>
+        manager.save(
+          manager.create(SavingsOp, {
+            idUser,
+            type,
+            pocketId: null,
+            cdtId: cdt.id,
+            amount,
+            closePocket: false,
+            idempotencyKey: opKey,
+            status: 'pending',
+            ledgerTransactionId: null,
+            failureReason: null,
+          }),
+        );
+      const existing = await manager.find(SavingsOp, {
+        where: { cdtId: cdt.id, type: In(['cdt_principal', 'cdt_interest']) },
+      });
       return [
-        existing.find((o) => o.type === 'cdt_principal') ?? await make('cdt_principal', cdt.amount, key),
-        existing.find((o) => o.type === 'cdt_interest') ?? await make('cdt_interest', cdt.net, derivedKey(key, 'interest')),
+        existing.find((o) => o.type === 'cdt_principal') ?? (await make('cdt_principal', cdt.amount, key)),
+        existing.find((o) => o.type === 'cdt_interest') ??
+          (await make('cdt_interest', cdt.net, derivedKey(key, 'interest'))),
       ];
     });
     if (principal.status !== 'completed') await this.execute(principal);
@@ -308,11 +369,18 @@ export class SavingsService {
   /** El asiento quedó: se marca la operación y se aplica su efecto (una sola vez). */
   private async complete(op: SavingsOp, ledgerTransactionId: string) {
     await this.dataSource.transaction(async (manager) => {
-      const claimed = await manager.update(SavingsOp, { id: op.id, status: 'pending' }, { status: 'completed', ledgerTransactionId });
+      const claimed = await manager.update(
+        SavingsOp,
+        { id: op.id, status: 'pending' },
+        { status: 'completed', ledgerTransactionId },
+      );
       if (!claimed.affected) return;
       const amount = Number(op.amount);
       if (op.type === 'pocket_in' || op.type === 'pocket_interest') {
-        const pocket = await manager.findOne(Pocket, { where: { id: op.pocketId }, lock: { mode: 'pessimistic_write' } });
+        const pocket = await manager.findOne(Pocket, {
+          where: { id: op.pocketId },
+          lock: { mode: 'pessimistic_write' },
+        });
         pocket.balance = money(Number(pocket.balance) + amount).toFixed(2);
         if (op.type === 'pocket_interest') pocket.earned = money(Number(pocket.earned) + amount).toFixed(2);
         await manager.save(pocket);
@@ -328,10 +396,17 @@ export class SavingsService {
   /** El ledger lo rechazó: se revierte lo reservado (compensación). */
   private async fail(op: SavingsOp, reason: string) {
     await this.dataSource.transaction(async (manager) => {
-      const claimed = await manager.update(SavingsOp, { id: op.id, status: 'pending' }, { status: 'failed', failureReason: reason.slice(0, 200) });
+      const claimed = await manager.update(
+        SavingsOp,
+        { id: op.id, status: 'pending' },
+        { status: 'failed', failureReason: reason.slice(0, 200) },
+      );
       if (!claimed.affected) return;
       if (op.type === 'pocket_out') {
-        const pocket = await manager.findOne(Pocket, { where: { id: op.pocketId }, lock: { mode: 'pessimistic_write' } });
+        const pocket = await manager.findOne(Pocket, {
+          where: { id: op.pocketId },
+          lock: { mode: 'pessimistic_write' },
+        });
         pocket.balance = money(Number(pocket.balance) + Number(op.amount)).toFixed(2);
         await manager.save(pocket);
       }
@@ -339,7 +414,11 @@ export class SavingsService {
       if (op.type === 'cdt_principal') {
         await manager.update(Cdt, { id: op.cdtId, status: 'collecting' }, { status: 'active' });
         // El interés no se paga si el capital no volvió; se podrá cobrar de nuevo.
-        await manager.delete(SavingsOp, { cdtId: op.cdtId, type: In(['cdt_principal', 'cdt_interest']), status: In(['pending', 'failed']) });
+        await manager.delete(SavingsOp, {
+          cdtId: op.cdtId,
+          type: In(['cdt_principal', 'cdt_interest']),
+          status: In(['pending', 'failed']),
+        });
       }
     });
   }
@@ -365,17 +444,28 @@ export class SavingsService {
       if (accrued < 0.01) return null;
       locked.lastAccrualAt = new Date();
       await manager.save(locked);
-      return manager.save(manager.create(SavingsOp, {
-        idUser: locked.idUser, type: 'pocket_interest', pocketId: locked.id, cdtId: null, amount: accrued.toFixed(2),
-        closePocket: false, idempotencyKey: derivedKey(locked.id, `interest-${locked.lastAccrualAt.toISOString()}`),
-        status: 'pending', ledgerTransactionId: null, failureReason: null,
-      }));
+      return manager.save(
+        manager.create(SavingsOp, {
+          idUser: locked.idUser,
+          type: 'pocket_interest',
+          pocketId: locked.id,
+          cdtId: null,
+          amount: accrued.toFixed(2),
+          closePocket: false,
+          idempotencyKey: derivedKey(locked.id, `interest-${locked.lastAccrualAt.toISOString()}`),
+          status: 'pending',
+          ledgerTransactionId: null,
+          failureReason: null,
+        }),
+      );
     });
     if (op) await this.execute(op);
   }
 
   private async resumeStale(idUser: string) {
-    const stale = await this.ops.find({ where: { idUser, status: 'pending', updatedAt: LessThan(new Date(Date.now() - STALE_PENDING_MS)) } });
+    const stale = await this.ops.find({
+      where: { idUser, status: 'pending', updatedAt: LessThan(new Date(Date.now() - STALE_PENDING_MS)) },
+    });
     for (const op of stale) await this.execute(op).catch(() => undefined);
   }
 
@@ -401,10 +491,20 @@ export class SavingsService {
 
   private async newOp(p: { idUser: string; type: SavingsOpType; pocketId: string; amount: number; key: string }) {
     try {
-      return await this.ops.save(this.ops.create({
-        idUser: p.idUser, type: p.type, pocketId: p.pocketId, cdtId: null, amount: money(p.amount).toFixed(2),
-        closePocket: false, idempotencyKey: p.key, status: 'pending', ledgerTransactionId: null, failureReason: null,
-      }));
+      return await this.ops.save(
+        this.ops.create({
+          idUser: p.idUser,
+          type: p.type,
+          pocketId: p.pocketId,
+          cdtId: null,
+          amount: money(p.amount).toFixed(2),
+          closePocket: false,
+          idempotencyKey: p.key,
+          status: 'pending',
+          ledgerTransactionId: null,
+          failureReason: null,
+        }),
+      );
     } catch (error) {
       if ((error as any)?.code === '23505') {
         const raced = await this.ops.findOne({ where: { idempotencyKey: p.key } });
