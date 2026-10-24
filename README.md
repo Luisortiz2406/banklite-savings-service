@@ -89,8 +89,11 @@ docker build -t banklite-savings-service .
 docker run --env-file .env -p 3013:3013 banklite-savings-service
 ```
 
-El sistema completo (los 12 servicios, Postgres, RabbitMQ y el gateway) se levanta
-desde el repositorio principal con `docker compose up -d --build`.
+El sistema completo (los 12 servicios, Postgres, RabbitMQ, el gateway y el frontend) se
+levanta con el `docker-compose.yml` del repositorio de integración de BankLite:
+`scripts/clonar-repos.sh` clona este repo junto a los demás y `docker compose up -d --build`
+construye cada servicio desde su clon (gateway en http://localhost:8080, app en
+http://localhost:5500).
 
 Comprobar: `curl http://localhost:3013/health`
 
@@ -140,7 +143,17 @@ todas se configuran como variables del servicio, nunca en el código.
 
 ## Pruebas
 
-Las reglas de negocio se prueban de punta a punta con los scripts de `scripts/pruebas/` del repositorio principal.
+Este servicio todavía no tiene pruebas unitarias: el CI (`.github/workflows/ci.yml`)
+revisa lint, formato y que compile. Para probarlo a mano con el sistema completo levantado:
+
+```bash
+curl http://localhost:8080/savings/catalog                        # tasas, plazos y topes (público)
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/savings  # bolsillos, metas y CDT
+```
+
+Para mover dinero hace falta saldo: en local, la consignación de prueba del ledger
+(`ENABLE_DEMO_DEPOSITS`) lo abona desde el dashboard. Cada movimiento debe aparecer en
+el ledger como tipo `saving`, y cerrar un bolsillo debe devolver todo a la cuenta.
 
 ## Despliegue
 
