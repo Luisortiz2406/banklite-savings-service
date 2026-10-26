@@ -29,7 +29,7 @@ registrar en el ledger → aplicar* con reintento por la misma clave.
 | Publica eventos | — |
 | Consume eventos | — |
 | Llama a | account-service: cuenta propia<br>ledger-service: `/ledger/internal/savings` |
-| Lo llaman | rewards-service: retos de ahorro<br>api-gateway (rutas `/savings/*`) |
+| Lo llaman | rewards-service: retos de ahorro<br>account-service: resumen para cancelar la cuenta (`/internal/savings/...`)<br>api-gateway (rutas `/savings/*`) |
 | Integraciones externas | — |
 
 Todo el tráfico externo entra por el **api-gateway** (único servicio público), que
@@ -121,6 +121,12 @@ A través del gateway las rutas son las mismas (`http://localhost:8080/savings/.
 | POST | `/savings/cdts/:id/collect` | Cobra un CDT vencido (capital + intereses − retención). |
 | POST | `/savings/cdts/:id/demo-mature` | Simula el vencimiento (solo demo). |
 
+### Internos (solo red privada, `x-internal-key`; el gateway responde 404 desde afuera)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/internal/savings/users/:idUser/resumen-cierre` | Solo **account-service**: bolsillos y metas con dinero, saldo apartado, CDT vigentes (`opening`, `active`, `collecting`) y operaciones en proceso, con `sinPendientes`. Lo usa «Cancelar mi cuenta». |
+
 ## Variables de entorno
 
 Ver `.env.example`. Los secretos se generan con
@@ -138,13 +144,19 @@ todas se configuran como variables del servicio, nunca en el código.
 | `INTERNAL_API_KEY` | **Sí** (no arranca sin ella) | — | Clave interna **propia** de este servicio; la manda en `x-internal-key` al llamar a otros. |
 | `LEDGER_SERVICE_URL` | Sí | `http://localhost:3006` | URL interna de ledger-service. |
 | `ACCOUNT_SERVICE_URL` | Sí | `http://localhost:3002` | URL interna de account-service. |
+| `INTERNAL_TRUSTED_KEYS` | Para el resumen de cierre | `account:<clave-de-account>` | Quién puede pedir `/internal/savings/...` (solo `account`). Sin ella se rechaza todo. |
 | `ENABLE_DEMO_MATURITY` | No | `false` | Muestra «Simular vencimiento» de CDT (solo demo). |
 | `HTTP_READ_RETRIES` | No | `1` | Reintentos de las lecturas (GET) a otros servicios; las escrituras no se reintentan. |
 
 ## Pruebas
 
-Este servicio todavía no tiene pruebas unitarias: el CI (`.github/workflows/ci.yml`)
-revisa lint, formato y que compile. Para probarlo a mano con el sistema completo levantado:
+```bash
+npm test   # con TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres para las de base
+```
+
+Con base: el resumen para cancelar la cuenta (bolsillos y metas con dinero, CDT vigentes, operaciones en proceso, otros clientes no cuentan). Permisos del endpoint interno (solo `account`). El CI corre con Postgres.
+
+Para probarlo a mano con el sistema completo levantado:
 
 ```bash
 curl http://localhost:8080/savings/catalog                        # tasas, plazos y topes (público)
