@@ -1,0 +1,29 @@
+# Pipeline de savings-service: pruebas → imagen en GHCR → despliegue en Railway.
+#
+# Usa el workflow reutilizable de banklite-pipelines (ver su README). En pull
+# requests solo corren las pruebas; en main además se sube la imagen a GHCR
+# (etiquetada con el SHA) y se despliega en Railway con `railway up`.
+# El autodeploy de Railway desde este repositorio está desconectado: solo
+# despliega este workflow.
+
+name: Despliegue
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pipeline:
+    uses: Luisortiz2406/banklite-pipelines/.github/workflows/servicio.yml@main
+    with:
+      servicio: savings-service
+      # Las pruebas con base corren contra un Postgres real (TEST_DATABASE_URL).
+      postgres: true
+    secrets: inherit
