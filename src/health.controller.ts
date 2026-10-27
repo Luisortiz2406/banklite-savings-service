@@ -54,3 +54,6 @@ export class HealthController {
     }
   }
 }
+
+// DEMO (no mergear): variable sin usar para que falle el lint del pipeline.
+const variableSinUsar = 'falla a propósito';
