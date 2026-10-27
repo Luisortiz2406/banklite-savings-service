@@ -4,6 +4,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InternalKeyGuard } from '../common/guards/internal-key.guard';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { AccountClosedConsumer } from '../events/account-closed.consumer';
+import { AccountClosedService } from './account-closed.service';
 import { ClosureSummaryService } from './closure-summary.service';
 import { Cdt } from './entities/cdt.entity';
 import { Pocket } from './entities/pocket.entity';
@@ -17,6 +19,16 @@ import { InternalSavingsController } from './internal-savings.controller';
 @Module({
   imports: [ConfigModule, JwtModule.register({}), TypeOrmModule.forFeature([Pocket, Cdt, SavingsOp])],
   controllers: [SavingsCatalogController, SavingsController, InternalSavingsController],
-  providers: [SavingsService, SavingsClientsService, JwtAuthGuard, ClosureSummaryService, InternalKeyGuard],
+  providers: [
+    SavingsService,
+    SavingsClientsService,
+    JwtAuthGuard,
+    ClosureSummaryService,
+    InternalKeyGuard,
+    AccountClosedService,
+    AccountClosedConsumer,
+  ],
+  // /health (AppModule) muestra si se están escuchando los eventos.
+  exports: [AccountClosedConsumer],
 })
 export class SavingsModule {}

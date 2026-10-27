@@ -21,13 +21,14 @@ registrar en el ledger → aplicar* con reintento por la misma clave.
 - Máximo de bolsillos y metas por cliente; meta con valor objetivo mínimo.
 - Un CDT no se puede cobrar antes de su vencimiento; «Simular vencimiento» solo existe en demo (`ENABLE_DEMO_MATURITY`).
 - No se retira más de lo que tiene el bolsillo; cerrar devuelve todo a la cuenta.
+- **Cuenta cancelada** (`account.closed`): se cierran los bolsillos y metas activos en $0 (`status = closed`, `closed_at`). Los que tienen dinero o una operación en proceso **no se tocan** y quedan en el log (`warn`, con el id y el saldo); los CDT tampoco. Procesar el evento dos veces no cambia nada.
 
 **Comunicación con otros servicios**
 
 | | |
 |---|---|
 | Publica eventos | — |
-| Consume eventos | — |
+| Consume eventos | `account.closed` (account), cola `savings-service.account-closed` con reintentos y DLQ |
 | Llama a | account-service: cuenta propia<br>ledger-service: `/ledger/internal/savings` |
 | Lo llaman | rewards-service: retos de ahorro<br>account-service: resumen para cancelar la cuenta (`/internal/savings/...`)<br>api-gateway (rutas `/savings/*`) |
 | Integraciones externas | — |
@@ -40,6 +41,7 @@ rutas internas.
 
 - Node.js 20, NestJS 10 y TypeScript
 - PostgreSQL con TypeORM (`synchronize: true`: las tablas se crean desde las entidades)
+- RabbitMQ (amqplib): exchange `banklite.events`, reintentos (`<cola>.retry`) y DLQ (`<cola>.dlq`)
 - JWT (`@nestjs/jwt`) y `class-validator` para validar todo lo que entra
 - Docker (imagen `node:20-alpine`) y despliegue en Railway
 
@@ -105,7 +107,7 @@ A través del gateway las rutas son las mismas (`http://localhost:8080/savings/.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/health` | Estado del servicio y de su base (`SELECT 1`); responde 503 con `status: down` si la base no contesta. |
+| GET | `/health` | Estado del servicio y de su base (`SELECT 1`); responde 503 con `status: down` si la base no contesta. Además, `eventos`: `conectado`, `sin_conexion` o `sin_configurar` (si se está escuchando `account.closed`); **no cambia `status`**, porque sin RabbitMQ el resto del servicio funciona. |
 | GET | `/savings/catalog` | Tasas, plazos y topes de ahorro. |
 
 ### Del cliente (`Authorization: Bearer <token de acceso>`)
@@ -147,6 +149,10 @@ todas se configuran como variables del servicio, nunca en el código.
 | `INTERNAL_TRUSTED_KEYS` | Para el resumen de cierre | `account:<clave-de-account>` | Quién puede pedir `/internal/savings/...` (solo `account`). Sin ella se rechaza todo. |
 | `ENABLE_DEMO_MATURITY` | No | `false` | Muestra «Simular vencimiento» de CDT (solo demo). |
 | `HTTP_READ_RETRIES` | No | `1` | Reintentos de las lecturas (GET) a otros servicios; las escrituras no se reintentan. |
+| `RABBITMQ_URL` | No | `amqp://banklite:<RABBITMQ_PASSWORD>@localhost:5672` | Conexión a RabbitMQ para escuchar `account.closed`. Sin ella el servicio funciona, pero no cierra los bolsillos y metas vacíos de una cuenta cancelada. Si falta, no tiene contraseña o no conecta, el log lo avisa al arrancar (`⚠ …`; el de «sin conexión» se repite cada 5 min mientras siga así) y `/health` muestra `eventos: sin_configurar` o `sin_conexion`. |
+| `RABBITMQ_EXCHANGE` | No | `banklite.events` | Exchange topic de eventos. |
+| `EVENT_MAX_RETRIES` | No | `5` | Reintentos de un evento antes de mandarlo a la DLQ. |
+| `EVENT_RETRY_DELAY_MS` | No | `10000` | Espera entre reintentos de un evento. |
 
 ## Pruebas
 
@@ -154,7 +160,7 @@ todas se configuran como variables del servicio, nunca en el código.
 npm test   # con TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres para las de base
 ```
 
-Con base: el resumen para cancelar la cuenta (bolsillos y metas con dinero, CDT vigentes, operaciones en proceso, otros clientes no cuentan). Permisos del endpoint interno (solo `account`). El CI corre con Postgres.
+Con base: el resumen para cancelar la cuenta (bolsillos y metas con dinero, CDT vigentes, operaciones en proceso, otros clientes no cuentan). Permisos del endpoint interno (solo `account`). Cuenta cancelada (`account.closed`): cierra los vacíos, no toca los que tienen dinero (ni un centavo) ni los que tienen una operación en proceso, ni los CDT, ni los de otro cliente; el evento repetido o simultáneo no cambia nada. El CI corre con Postgres.
 
 Para probarlo a mano con el sistema completo levantado:
 
@@ -188,6 +194,6 @@ despliega desde su propio repositorio.
 | Repositorio | Relación con este servicio |
 |---|---|
 | [banklite-api-gateway](https://github.com/Luisortiz2406/banklite-api-gateway) | **Lo llama:** punto de entrada público, le enruta las rutas de este servicio |
-| [banklite-account-service](https://github.com/Luisortiz2406/banklite-account-service) | **Llama a:** cuenta del cliente |
+| [banklite-account-service](https://github.com/Luisortiz2406/banklite-account-service) | **Llama a:** cuenta del cliente<br>**Lo llama:** resumen para cancelar la cuenta<br>**Recibe:** `account.closed` (cierra los bolsillos y metas vacíos) |
 | [banklite-ledger-service](https://github.com/Luisortiz2406/banklite-ledger-service) | **Llama a:** movimientos de dinero (`/ledger/internal/savings`) |
 | [banklite-rewards-service](https://github.com/Luisortiz2406/banklite-rewards-service) | **Lo llama:** progreso de los retos de ahorro |
