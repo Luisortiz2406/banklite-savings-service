@@ -28,5 +28,7 @@ import { InternalSavingsController } from './internal-savings.controller';
     AccountClosedService,
     AccountClosedConsumer,
   ],
+  // /health (AppModule) muestra si se están escuchando los eventos.
+  exports: [AccountClosedConsumer],
 })
 export class SavingsModule {}

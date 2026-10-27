@@ -107,7 +107,7 @@ A través del gateway las rutas son las mismas (`http://localhost:8080/savings/.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/health` | Estado del servicio y de su base (`SELECT 1`); responde 503 con `status: down` si la base no contesta. |
+| GET | `/health` | Estado del servicio y de su base (`SELECT 1`); responde 503 con `status: down` si la base no contesta. Además, `eventos`: `conectado`, `sin_conexion` o `sin_configurar` (si se está escuchando `account.closed`); **no cambia `status`**, porque sin RabbitMQ el resto del servicio funciona. |
 | GET | `/savings/catalog` | Tasas, plazos y topes de ahorro. |
 
 ### Del cliente (`Authorization: Bearer <token de acceso>`)
@@ -149,7 +149,7 @@ todas se configuran como variables del servicio, nunca en el código.
 | `INTERNAL_TRUSTED_KEYS` | Para el resumen de cierre | `account:<clave-de-account>` | Quién puede pedir `/internal/savings/...` (solo `account`). Sin ella se rechaza todo. |
 | `ENABLE_DEMO_MATURITY` | No | `false` | Muestra «Simular vencimiento» de CDT (solo demo). |
 | `HTTP_READ_RETRIES` | No | `1` | Reintentos de las lecturas (GET) a otros servicios; las escrituras no se reintentan. |
-| `RABBITMQ_URL` | No | `amqp://banklite:<RABBITMQ_PASSWORD>@localhost:5672` | Conexión a RabbitMQ para escuchar `account.closed`. Sin ella el servicio funciona, pero no cierra los bolsillos y metas vacíos de una cuenta cancelada. |
+| `RABBITMQ_URL` | No | `amqp://banklite:<RABBITMQ_PASSWORD>@localhost:5672` | Conexión a RabbitMQ para escuchar `account.closed`. Sin ella el servicio funciona, pero no cierra los bolsillos y metas vacíos de una cuenta cancelada. Si falta, no tiene contraseña o no conecta, el log lo avisa al arrancar (`⚠ …`; el de «sin conexión» se repite cada 5 min mientras siga así) y `/health` muestra `eventos: sin_configurar` o `sin_conexion`. |
 | `RABBITMQ_EXCHANGE` | No | `banklite.events` | Exchange topic de eventos. |
 | `EVENT_MAX_RETRIES` | No | `5` | Reintentos de un evento antes de mandarlo a la DLQ. |
 | `EVENT_RETRY_DELAY_MS` | No | `10000` | Espera entre reintentos de un evento. |
