@@ -173,6 +173,10 @@ Para mover dinero hace falta saldo: en local, la consignación de prueba del led
 (`ENABLE_DEMO_DEPOSITS`) lo abona desde el dashboard. Cada movimiento debe aparecer en
 el ledger como tipo `saving`, y cerrar un bolsillo debe devolver todo a la cuenta.
 
+Bolsillos, metas y CDT (`savings.service.spec.ts`): la plata nunca queda a medias. Si el ledger rechaza, lo reservado se devuelve; si no se sabe (red o 5xx), la operación queda pendiente y se completa con la misma clave sin moverla dos veces. Intereses, retención del 4 % del CDT, cobro al vencimiento y resumen. Asientos del ledger (`savings-clients.service.spec.ts`), mensajes de `account.closed`, controladores, reintentos, guards y validación de configuración.
+
+**Cobertura:** el pipeline la muestra en el resumen de cada corrida y exige un mínimo de 70 % de líneas y 50 % de ramas (`umbral-lineas` y `umbral-ramas` en `deploy.yml`). Hoy está en 94,5 % de líneas y 92,7 % de ramas.
+
 ## Despliegue
 
 Lo despliega **GitHub Actions** (`.github/workflows/deploy.yml`, que usa el workflow
