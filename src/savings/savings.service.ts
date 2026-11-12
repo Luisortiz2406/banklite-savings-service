@@ -262,7 +262,9 @@ export class SavingsService {
   /** Cobrar un CDT vencido: vuelve el capital y el banco paga los intereses netos. */
   async collectCdt(idUser: string, cdtId: string, key: string) {
     const replay = await this.replay(key, idUser);
-    if (replay) return replay;
+    // Con el CDT aún cobrando (p. ej. el capital ya volvió pero el interés quedó incierto) el reintento
+    // con la misma clave sigue el cobro: solo se repite lo que falta.
+    if (replay && replay.cdt?.status !== 'collecting') return replay;
     const cdt = await this.cdts.findOne({ where: { id: cdtId, idUser } });
     if (!cdt) throw new NotFoundException('CDT no encontrado.');
     if (cdt.status === 'paid') return { status: 'completed', cdt: this.publicCdt(cdt) };

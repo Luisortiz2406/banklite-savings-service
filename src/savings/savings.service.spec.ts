@@ -428,6 +428,26 @@ describeWithDb('SavingsService (PostgreSQL)', () => {
         expect(clients.post.mock.calls.map((call) => call[0].kind)).toEqual(['interest_to_account']);
       });
 
+      it('REGRESIÓN: reintentar con la MISMA clave cuando el interés quedó incierto lo paga (no responde "completado" sin pagarlo)', async () => {
+        const cdt = await matured();
+        const key = randomUUID();
+        clients.post.mockResolvedValueOnce({ id: randomUUID() }).mockRejectedValueOnce(uncertain());
+        await expect(service.collectCdt(ANA, cdt.id, key)).rejects.toBeInstanceOf(ServiceUnavailableException);
+        expect((await cdtRow(cdt.id)).status).toBe('collecting');
+        clients.post.mockClear();
+
+        const result = await service.collectCdt(ANA, cdt.id, key);
+
+        expect(result.cdt.status).toBe('paid');
+        expect(clients.post.mock.calls.map((call) => call[0].kind)).toEqual(['interest_to_account']);
+        expect((await cdtRow(cdt.id)).status).toBe('paid');
+
+        // Y una tercera vez con la misma clave ya no paga nada.
+        clients.post.mockClear();
+        expect((await service.collectCdt(ANA, cdt.id, key)).cdt.status).toBe('paid');
+        expect(clients.post).not.toHaveBeenCalled();
+      });
+
       it('la red de seguridad: si el interés quedó pendiente, el resumen lo completa pasados 30 segundos', async () => {
         const cdt = await matured();
         clients.post.mockResolvedValueOnce({ id: randomUUID() }).mockRejectedValueOnce(uncertain());
