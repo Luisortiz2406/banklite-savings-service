@@ -7,9 +7,11 @@ import { Cdt } from './savings/entities/cdt.entity';
 import { Pocket } from './savings/entities/pocket.entity';
 import { SavingsOp } from './savings/entities/savings-op.entity';
 import { SavingsModule } from './savings/savings.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
+    MetricsModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
