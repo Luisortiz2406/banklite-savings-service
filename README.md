@@ -141,6 +141,7 @@ todas se configuran como variables del servicio, nunca en el código.
 |---|---|---|---|
 | `NODE_ENV` | No | `development` | `development` en local; `production` en Railway (lo fija el Dockerfile). |
 | `PORT` | No | `3013` | Puerto HTTP del servicio. |
+| `METRICS_PORT` | No | `9100` | Puerto de `GET /metrics` (Prometheus), solo para la red privada; **no** es el puerto público (`PORT`). `off` lo apaga. |
 | `DATABASE_URL` | **Sí** (no arranca sin ella) | `postgres://savings_svc:<DB_PASSWORD_SAVINGS>@localhost:5432/savings_db` | Conexión a PostgreSQL de **su** base (rol propio, sin acceso a las demás). |
 | `JWT_SECRET` | **Sí** (no arranca sin ella) | — | Firma de los JWT de clientes (el mismo valor que en auth-service). |
 | `INTERNAL_API_KEY` | **Sí** (no arranca sin ella) | — | Clave interna **propia** de este servicio; la manda en `x-internal-key` al llamar a otros. |
